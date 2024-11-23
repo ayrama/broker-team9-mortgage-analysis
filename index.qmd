@@ -63,3 +63,48 @@ How does the county you live in and the income you make affect mortgage rates, p
 - `/docs`: Documentation related to the project.
 </details>
 :::
+
+### New York shapefile
+#### Downloading New York shape file
+```{r}
+base_url <- "https://www2.census.gov/geo/tiger/TIGER2024/CD/"
+file_name <- paste0("tl_2024_36_cd119.zip")
+file_url <- paste0(base_url, file_name)
+dest_file <- file.path("data", file_name)  # Save in the /data folder
+
+# Create the destination folder if it doesn't exist
+dir.create("data", showWarnings = FALSE)
+
+# Download the file
+tryCatch({
+  download.file(file_url, destfile = dest_file, mode = "wb")
+  message("Downloaded file: ", file_name, " to data folder")
+}, error = function(e) {
+  message("Failed to download file: ", file_name, " - Error: ", e$message)
+})
+
+```
+#### opening New York shapefile
+```{r}
+# Load required libraries
+library(sf)
+library(utils)
+
+# Define the path to the ZIP file and extraction directory
+zip_file <- "data/tl_2024_36_cd119.zip"
+extract_dir <- "data/tl_2024_36_cd119"
+
+# Unzip the file
+unzip(zipfile = zip_file, exdir = extract_dir)
+
+# Load the shapefile (adjust path as needed)
+shapefile_path <- file.path(extract_dir, "tl_2024_36_cd119.shp")
+shapefile <- st_read(shapefile_path, quiet = TRUE)
+
+# Plot the map
+plot(st_geometry(shapefile))
+
+```
+
+
+
