@@ -1,0 +1,17 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Exploring Income and Mortgage Patterns in New York"
+  description:
+    Course Projects for STA/OPR 9750 at Baruch College
+  site-url: "https://github.com/ayrama/broker-team9-mortgage-analysis.git"
+  navbar:
+    background: primary
+    search: false
+
+format:
+  html:
+    theme: cosmo
+    toc: false
