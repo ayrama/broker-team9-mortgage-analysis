@@ -48,7 +48,6 @@ How does the county you live in and the income you make affect mortgage rates, p
 - `/data`: Contains raw and cleaned datasets.
 - `/scripts`: Includes code for data analysis and visualization.
 - `/docs`: Documentation related to the project.
-- `/results`: Final outputs, including figures, tables, and conclusions.
 
 ## Getting Started
 1. Clone the repository:
