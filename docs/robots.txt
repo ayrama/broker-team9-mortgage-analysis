@@ -1,1 +1,1 @@
-Sitemap: https://github.com/ayrama/broker-team9-mortgage-analysis.git/sitemap.xml
+Sitemap: https://ayrama.github.io/broker-team9-mortgage-analysis/sitemap.xml
