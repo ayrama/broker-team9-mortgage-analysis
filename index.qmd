@@ -13,8 +13,9 @@ execute:
   warning: false
   message: false
 ---
-
-# this section will be removed later
+::: {.callout .details}
+<details>
+<summary><h3>This section will be removed later</h3></summary>
 ### Overarching Question
 How does the county you live in and the income you make affect mortgage rates, particularly throughout the three stages of the COVID-19 pandemic (2018-2023)?
 
@@ -60,3 +61,5 @@ How does the county you live in and the income you make affect mortgage rates, p
 - `/data`: Contains raw and cleaned datasets.
 - `/scripts`: Includes code for data analysis and visualization.
 - `/docs`: Documentation related to the project.
+</details>
+:::
