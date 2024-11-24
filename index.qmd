@@ -13,6 +13,24 @@ execute:
   warning: false
   message: false
 ---
+```{r}
+if (!require(tidyverse)) install.packages("tidyverse")
+if (!require(DT)) install.packages("DT")
+if (!require(sf)) install.packages("sf")
+if (!require(sf)) install.packages("rvest")
+if (!require(sf)) install.packages("httr")
+if (!require(sf)) install.packages("data.table")
+
+library(tidyverse)
+library(DT)
+library(sf)
+library(utils)
+library(rvest)
+library(httr)
+library(data.table)
+```
+
+
 ::: {.callout .details}
 <details>
 <summary><h3>This section will be removed later</h3></summary>
@@ -27,25 +45,30 @@ How does the county you live in and the income you make affect mortgage rates, p
 5. Do interest rates vary significantly by county, and how are they influenced by sex or race?
 
 ### Data Sources
-1. **NYC Annualized Sales (2003-2023)**  
+1. **New York shapefile** 
+   Sourse: [US Census Bureau](https://www2.census.gov/geo/tiger/TIGER2024/CD/)
+
+2. **NYC Annualized Sales (2003-2023)**  
    Source: [NYC Department of Finance](https://www.nyc.gov/site/finance/property/property-annualized-sales-update.page#)  
    Description: Provides property sales data for NYC.
 
-2. **Record Mortgages Originated NY (2016-2021)**  
+3. **Record Mortgages Originated NY (2016-2021)**  
    Source: [NY State Department of Financial Services](https://www.dfs.ny.gov/apps_and_licensing/mortgage_companies/rrpm_originated_nys)  
    Description: Contains records of mortgages originated in New York State.
 
-3. **HMDA US Mortgage Data (5 Years)**  
+4. **HMDA US Mortgage Data (5 Years)**  
    Source: [Consumer Financial Protection Bureau](https://www.consumerfinance.gov/data-research/hmda/)  
    Description: Loan-level mortgage data, including interest rates, loan terms, and loan types.
 
-4. **S1901: Income in the Past 12 Months**  
+5. **S1901: Income in the Past 12 Months**  
    Source: [US Census Bureau](https://data.census.gov/profile/New_York?g=040XX00US36)  
    Description: Annual income data by household type and income brackets.
 
-5. **S2401: Occupation by Sex for the Civilian Employed Population 16 Years and Over**  
+6. **S2401: Occupation by Sex for the Civilian Employed Population 16 Years and Over**  
    Source: [US Census Bureau](https://data.census.gov/profile/New_York?g=040XX00US36)  
    Description: Employment statistics by occupation and demographics.
+
+ 
    
 ### Project Goals
 - Examine the relationship between income, geographic location, and mortgage trends.
@@ -64,38 +87,28 @@ How does the county you live in and the income you make affect mortgage rates, p
 </details>
 :::
 
+## Data downloading
+
 ### New York shapefile
-#### Downloading New York shape file
+
+#### Downloading and opening New York shapefile
 ```{r}
-base_url <- "https://www2.census.gov/geo/tiger/TIGER2024/CD/"
-file_name <- paste0("tl_2024_36_cd119.zip")
-file_url <- paste0(base_url, file_name)
-dest_file <- file.path("data", file_name)  # Save in the /data folder
-
-# Create the destination folder if it doesn't exist
-dir.create("data", showWarnings = FALSE)
-
-# Download the file
-tryCatch({
-  download.file(file_url, destfile = dest_file, mode = "wb")
-  message("Downloaded file: ", file_name, " to data folder")
-}, error = function(e) {
-  message("Failed to download file: ", file_name, " - Error: ", e$message)
-})
-
-```
-#### opening New York shapefile
-```{r}
-# Load required libraries
-library(sf)
-library(utils)
-
-# Define the path to the ZIP file and extraction directory
+# Define the URL of the ZIP file and the path for the local file
+zip_url <- "https://www.example.com/tl_2024_36_cd119.zip" # Replace with actual URL
 zip_file <- "data/tl_2024_36_cd119.zip"
 extract_dir <- "data/tl_2024_36_cd119"
 
-# Unzip the file
-unzip(zipfile = zip_file, exdir = extract_dir)
+# Check if the ZIP file already exists
+if (!file.exists(zip_file)) {
+  message("Downloading ZIP file...")
+  download.file(zip_url, zip_file, mode = "wb")
+}
+
+# Check if the extracted folder exists; if not, unzip the file
+if (!dir.exists(extract_dir)) {
+  message("Unzipping the file...")
+  unzip(zipfile = zip_file, exdir = extract_dir)
+} 
 
 # Load the shapefile (adjust path as needed)
 shapefile_path <- file.path(extract_dir, "tl_2024_36_cd119.shp")
@@ -103,8 +116,165 @@ shapefile <- st_read(shapefile_path, quiet = TRUE)
 
 # Plot the map
 plot(st_geometry(shapefile))
+```
 
+```{r}
+# Define file paths
+zip_file <- "data/nyc_borough_boundaries.zip"
+unzip_dir <- "data/nyc_borough_boundaries"
+
+# Download the NYC borough boundaries shapefile if not already downloaded
+if (!file.exists(zip_file)) {
+  download.file("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=Shapefile", 
+                destfile = zip_file, mode = "wb")
+}
+
+# Unzip the file
+unzip(zip_file, exdir = unzip_dir)
+
+# Find the .shp file in the unzipped directory
+shp_file <- list.files(unzip_dir, pattern = "\\.shp$", full.names = TRUE)
+
+# Load the shapefile using sf
+nyc_sf <- st_read(shp_file, quiet = TRUE)
+
+# Plot the shapefile using ggplot2
+ggplot(nyc_sf) + 
+  geom_sf(aes(fill = shape_area)) + 
+  labs(title = "NYC Borough Boundaries", fill = "Area") +
+  theme_minimal()
 ```
 
 
+### NYC Annualized Sales (2003-2023)
+```{r}
+# Create the target directory if it does not exist
+dir.create("data/NYC_Annualized_Sales", recursive = TRUE, showWarnings = FALSE)
 
+# Define the base URL
+base_url <- "https://www.nyc.gov/assets/finance/downloads/pdf/rolling_sales/neighborhood_sales/"
+
+# Define the list of file names and relative paths (same strings used for both)
+files <- c(
+  "2023/2023_manhattan.xlsx",
+  "2023/2023_bronx.xlsx",
+  "2023/2023_brooklyn.xlsx",
+  "2023/2023_queens.xlsx",
+  "2023/2023_statenisland.xlsx",
+  "2023/2023_citywide_sale.xlsx",
+  "2022/2022_citywide_sale.xlsx",
+  "2021_citywide_sale.xlsx",
+  "2020_citywide_sale.xlsx",
+  "2019_citywide_sale.xlsx",
+  "2018_citywide_sale.xlsx"
+)
+
+# Use purrr::walk for mapping
+walk(files, ~ {
+  # Destination file name (extracts the last part of the file path)
+  dest_file <- file.path("data/NYC_Annualized_Sales", basename(.x))
+  
+  # Check if file exists
+  if (!file.exists(dest_file)) {
+    tryCatch({
+      # Concatenate base URL with the relative path
+      download.file(paste0(base_url, .x), destfile = dest_file, mode = "wb")
+      message("Downloaded: ", dest_file)
+    }, error = function(e) {
+      message("Failed to download: ", dest_file, " - ", e$message)
+    })
+  } else {
+    message("File already exists: ", dest_file)
+  }
+})
+
+```
+
+### Record Mortgages Originated NY (2016-2021)
+```{r}
+# URL of the webpage
+url <- "https://www.dfs.ny.gov/apps_and_licensing/mortgage_companies/rrpm_originated_nys"
+
+# Define the output file path
+output_file <- "data/mortgage_table.csv"
+
+# Check if the file already exists
+if (file.exists(output_file)) {
+  # Load the existing CSV file into table_df
+  table_df <- read.csv(output_file)
+} else {
+  # Read the webpage content
+  webpage <- read_html(url)
+  
+  # Extract the table (assumes the table is the first one on the page)
+  table <- webpage %>%
+    html_node("table") %>%  # Select the table element
+    html_table()
+  
+  # Convert to a data frame
+  table_df <- as.data.frame(table)
+  
+  # Save the table as a CSV file
+  write.csv(table_df, output_file, row.names = FALSE)
+}
+
+# Use table_df for further processing or display
+table_df
+
+```
+
+### HMDA US Mortgage Data (2018-2023)
+
+```{r}
+# Base URL
+base_url <- "https://ffiec.cfpb.gov/v2/data-browser-api/view/csv"
+
+# Define years
+years <- 2018:2023
+
+# Create the output folder
+dir.create("data/HMDA_NYC_Mortgage_2018_2023", recursive = TRUE, showWarnings = FALSE)
+
+# Loop through years to download state-level data
+for (year in years) {
+  # Construct the API URL with states only
+  api_url <- paste0(base_url, "?years=", year, "&states=36")
+  
+  # Output file path
+  output_file <- paste0("data/HMDA_NYC_Mortgage_2018_2023/mortgage_data_", year, "_state.csv")
+  
+  # Check if the file already exists
+  if (!file.exists(output_file)) {
+    # If the file doesn't exist, download it
+    tryCatch({
+      response <- GET(api_url)
+      
+      # Check if the request is successful
+      if (status_code(response) == 200) {
+        writeBin(content(response, "raw"), output_file)
+        message("Downloaded: ", output_file)
+      } else {
+        message("Failed for year ", year, " - Status Code: ", status_code(response))
+        message(content(response, as = "text"))
+      }
+    }, error = function(e) {
+      message("Error downloading year ", year, " - ", e$message)
+    })
+  }
+}
+
+```
+```{r}
+# Define the file path
+file_path <- "data/HMDA_NYC_Mortgage_2018_2023/mortgage_data_2018_state.csv"
+
+# Read the CSV file
+mortgage_data <- fread(file_path)
+
+# Get a summary of the data
+colnames(mortgage_data)
+```
+
+### S1901: Income in the Past 12 Months
+
+### S2401: Occupation by Sex for the Civilian Employed Population 16 Years and Over**  
