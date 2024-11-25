@@ -327,6 +327,8 @@ colnames(mortgage_data)
 # })
 
 ```
+
+Downloading the s1901 tables for 2018-2023 range
 ```{r}
 # downloading zip files s1901 table for 2018-2023 range.
 # 2018-2022 tables are 5-years estimates; includes all counties in NY state
@@ -357,6 +359,9 @@ tryCatch({
 })
 
 ```
+
+
+S1901 tables merging and modification
 ```{r}
 # Load necessary libraries
 library(dplyr)
@@ -440,11 +445,18 @@ names(combined_table) <- names(combined_table) %>%
 # Replace columns with "(X)" or NA values
 combined_table <- combined_table %>%
   select(where(~ !all(. == "(X)" | is.na(.))))
-#  
+
+# Generate the DT table with horizontal scroll
+datatable(combined_table, 
+          options = list(pageLength = 10, scrollX = TRUE),
+          caption = 'Cleaned Combined Table')
+
+
 # # Optional: Save the combined table to a CSV file
 write.csv(combined_table, "data/s1901/combined_s1901_cleaned.csv", row.names = FALSE)
 
 ```
+
 
 
 
