@@ -28,6 +28,7 @@ library(utils)
 library(rvest)
 library(httr)
 library(data.table)
+
 ```
 
 
@@ -264,6 +265,8 @@ for (year in years) {
 }
 
 ```
+
+
 ```{r}
 # Define the file path
 file_path <- "data/HMDA_NYC_Mortgage_2018_2023/mortgage_data_2018_state.csv"
@@ -276,5 +279,173 @@ colnames(mortgage_data)
 ```
 
 ### S1901: Income in the Past 12 Months
+```{r eval = FALSE}
+# API
+# 
+# library(httr)
+# library(jsonlite)
+# library(dplyr)
+# 
+# # Define the base URL for the API
+# base_url <- "https://api.census.gov/data/2023/acs/acs1/subject"
+# 
+# # Define query parameters
+# query_params <- list(
+#   get = "group(S1901)",
+#   ucgid = "pseudo(0400000US36$0500000)" # Updated ucgid parameter
+# )
+# 
+# # Define the output folder and file
+# output_folder <- "data/s1901"
+# dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
+# output_file <- file.path(output_folder, "s1901_data.csv")
+# 
+# # Make the API request
+# tryCatch({
+#   response <- GET(base_url, query = query_params)
+# 
+#   # Check if the request was successful
+#   if (status_code(response) == 200) {
+#     # Parse the JSON content
+#     raw_content <- content(response, as = "text")
+#     data <- fromJSON(raw_content)
+#     
+#     # Extract column names and rows
+#     col_names <- data[[1]]   # First row contains column names
+#     data <- as.data.frame(data[-1, ], stringsAsFactors = FALSE)  # Remove the first row for data
+#     colnames(data) <- col_names  # Assign column names to the data frame
+# 
+#     # Save the data as a CSV file
+#     write.csv(data, output_file, row.names = FALSE)
+#     message("Downloaded data saved to: ", output_file)
+#   } else {
+#     message("Failed to download data - Status Code: ", status_code(response))
+#     message("Response: ", content(response, as = "text"))
+#   }
+# }, error = function(e) {
+#   message("Error during API request: ", e$message)
+# })
+
+```
+```{r}
+# downloading zip files s1901 table for 2018-2023 range.
+# 2018-2022 tables are 5-years estimates; includes all counties in NY state
+# 2022 is 1-year estimate; does not include small states.
+
+# Define the URL and file paths
+url <- "https://data.census.gov/api/access/table/download?download_id=5bb0f710ebc6fbb327e67624a3f89396e7c82f76c6a3aeb6d097db96d46b684c"
+zip_file <- "data/s1901/s1901_data.zip"
+extract_dir <- "data/s1901"
+
+# Create the destination folder if it doesn't exist
+dir.create("data/s1901", recursive = TRUE, showWarnings = FALSE)
+
+# Download the ZIP file
+if (!file.exists(zip_file)) {
+  tryCatch({
+    download.file(url, destfile = zip_file, mode = "wb")
+  }, error = function(e) {
+    stop("Failed to download the ZIP file: ", e$message)
+  })
+}
+
+# Force unzip the file to ensure proper extraction
+tryCatch({
+  unzip(zipfile = zip_file, exdir = extract_dir, overwrite = TRUE)
+}, error = function(e) {
+  stop("Failed to unzip the file: ", e$message)
+})
+
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+
+# Define the folder containing the CSV files
+folder_path <- "data/s1901"
+
+# Define the file names and years
+years <- 2018:2023
+file_names <- c(
+  paste0("ACSST5Y", years[1:5], ".S1901-Data.csv"), # For 5-Year Estimates (2018-2022)
+  "ACSST1Y2023.S1901-Data.csv" # For 1-Year Estimate (2023)
+)
+
+# Initialize an empty list to store the data frames
+tables_list <- list()
+
+# Loop through the file names and read each table
+for (i in seq_along(file_names)) {
+  file_path <- file.path(folder_path, file_names[i]) # Construct full file path
+  if (file.exists(file_path)) {
+    # Read the CSV file without treating the first row as the header
+    temp_table <- read.csv(file_path, stringsAsFactors = FALSE, header = FALSE)
+    
+    # For the first table, remove only the first header row
+    if (i == 1) {
+      temp_table <- temp_table[-1, ] # Remove the first row
+    } else {
+      # For other tables, remove the first two header rows
+      temp_table <- temp_table[-c(1, 2), ] # Remove the first two rows
+    }
+    
+    # Assign proper column names from the first table (header row from file 1)
+    if (i == 1) {
+      column_names <- temp_table[1, ] # Capture the first row as column names
+      temp_table <- temp_table[-1, ]  # Remove the row used for column names
+    }
+    colnames(temp_table) <- column_names # Apply column names to all tables
+    
+    # Add a new column for the year
+    temp_table <- temp_table %>% mutate(Year = years[i])
+    
+    # Append the cleaned table to the list
+    tables_list[[i]] <- temp_table
+  } else {
+    stop("File not found: ", file_path)
+  }
+}
+
+# Combine all tables into one
+combined_table <- bind_rows(tables_list)
+
+# Move "Year" column to the second position
+combined_table <- combined_table %>%
+  relocate(Year, .after = Geography)
+
+# Remove all columns with the word "Margin"
+combined_table <- combined_table %>%
+  select(-contains("Margin"))
+
+# Rename columns with multiple modifications
+names(combined_table) <- names(combined_table) %>%
+  gsub("Estimate!!", "", .) %>%                # Remove "Estimate!!"
+  gsub("Total!!", "", .) %>%                   # Remove "Total!!"
+  gsub("!!", "_", .) %>%                       # Replace "!!" with "_"
+  gsub("Less than ", "<", .) %>%               # Replace "Less than " with "<"
+  gsub(" to ", "-", .) %>%                     # Replace " to " with "-"
+  gsub("\\$10,000", "$10k", .) %>%             # Replace "$10,000" with "$10k"
+  gsub("\\$14,999|\\$15,000", "$15k", .) %>%   # Replace "$14,999" and "$15,000" with "$15k"
+  gsub("\\$24,999|\\$25,000", "$25k", .) %>%   # Replace "$24,999" and "$25,000" with "$25k"
+  gsub("\\$34,999|\\$35,000", "$35k", .) %>%   # Replace "$34,999" and "$35,000" with "$35k"
+  gsub("\\$49,999|\\$50,000", "$50k", .) %>%   # Replace "$49,999" and "$50,000" with "$50k"
+  gsub("\\$74,999|\\$75,000", "$75k", .) %>%   # Replace "$74,999" and "$75,000" with "$75k"
+  gsub("\\$99,999|\\$100,000", "$100k", .) %>% # Replace "$99,999" and "$100,000" with "$100k"
+  gsub("\\$149,999|\\$150,000", "$150k", .) %>%# Replace "$149,999" and "$150,000" with "$150k"
+  gsub("\\$199,999|\\$200,000", "$200k", .) %>%# Replace "$199,999" and "$200,000" with "$200k"
+  gsub(" in the past 12 months", "", .) %>%    # Remove " in the past 12 months"
+  gsub(" ", "_", .) %>%                    # Replace all white spaces with "_"
+  gsub("\\$200k_or_more", ">$200k", .)
+
+# Replace columns with "(X)" or NA values
+combined_table <- combined_table %>%
+  select(where(~ !all(. == "(X)" | is.na(.))))
+#  
+# # Optional: Save the combined table to a CSV file
+write.csv(combined_table, "data/s1901/combined_s1901_cleaned.csv", row.names = FALSE)
+
+```
+
+
 
 ### S2401: Occupation by Sex for the Civilian Employed Population 16 Years and Over**  
