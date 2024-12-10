@@ -1,0 +1,256 @@
+---
+title: "Final Project Team 9"
+author: "Broker T's (Team )"
+editor: visual
+format:
+  html:
+    code-fold: false
+    toc: true         
+    toc-depth: 3 
+execute: 
+  cache: true
+  cache-rebuild: false
+  warning: false
+  message: false
+---
+<details>
+  <summary>Click here to see how the libraries were downloaded</summary>
+```{r}
+required_packages <- c(
+  "tidycensus", "tigris", "plotly", "gganimate", "viridis", "magick"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
+
+library(tidycensus)
+library(tidyverse) 
+library(DT)
+library(tigris)
+library(plotly)
+library(gganimate)
+library(viridis)
+library(sf)
+library(magick) 
+```
+</details>
+
+
+
+```{r}
+census_api_key('fd444ca335bf9020633084575dbe45c1529be65f', install = TRUE, overwrite = TRUE)
+```
+##### Change of Variables
+Click here to see how the variables were changed
+```{r}
+vars_2018 <- load_variables(2018, "acs1", cache = TRUE)
+
+var_map <- c(
+  "B02001_001" = "Estimated Total",
+  "B02001_002" = "White Alone", 
+  "B02001_003" = "Black or African American Alone", 
+  "B02001_004" = "American Indian and Alaska Native Alone",
+  "B02001_005" = "Asian Alone", 
+  "B02001_006" = "Native Hawaiian and other Pacific Islander Alone",
+  "B02001_007" = "Some Other Race", 
+  "B02001_008" = "2 or more races"
+)
+```
+</details> 
+
+##### Population Report for 2018 - 2023, based on Race
+<details>
+  <summary>Click here to see how the data was downloaded into R</summary>
+```{r}
+# Getting 2018: 
+
+population_1901_2018 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2018,
+  survey = "acs1"
+)
+```
+
+```{r}
+population_1901_2018 <- population_1901_2018 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2018 = estimate) |>
+  select(-moe)
+
+
+population_1901_2018 <- population_1901_2018 |>
+  mutate(race = var_map[race])
+
+# Getting 2019
+
+population_1901_2019 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2019,
+  survey = "acs1"
+)
+```
+
+```{r}
+population_1901_2019 <- population_1901_2019 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2019 = estimate) |>
+  select(-moe)
+
+
+population_1901_2019 <- population_1901_2019 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2021
+
+population_1901_2021 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2021,
+  survey = "acs1"
+)
+```
+
+```{r}
+population_1901_2021 <- population_1901_2021 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2021 = estimate) |>
+  select(-moe)
+
+
+population_1901_2021 <- population_1901_2021 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2022
+
+
+population_1901_2022 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2022,
+  survey = "acs1"
+)
+```
+
+```{r}
+population_1901_2022 <- population_1901_2022 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2022 = estimate) |>
+  select(-moe)
+
+
+population_1901_2022 <- population_1901_2022 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2023
+
+population_1901_2023 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2023,
+  survey = "acs1"
+)
+```
+
+```{r}
+population_1901_2023 <- population_1901_2023 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2023 = estimate) |>
+  select(-moe)
+
+
+population_1901_2023 <- population_1901_2023 |>
+  mutate(race = var_map[race]) 
+```
+Data table that shows all of the races from 2018-2023, by race and county.
+
+</details> 
+
+
+<details>
+  <summary>Click here to see how this was done</summary>
+```{r}
+total_population_race <- population_1901_2018 |>
+  left_join(select(population_1901_2019, y2019, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2021, y2021, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2022, y2022, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2023, y2023, GEOID, race), by = c("GEOID", "race")) 
+```
+</details>
+
+```{r}
+datatable(total_population_race)
+```
+
+Get NY State map by county
+
+<details>
+  <summary>Click here to see how this was done</summary>
+```{r}
+ny_counties <- counties(state = "NY", cb = TRUE)
+```
+```{r}
+ny_counties_sf <- st_as_sf(ny_counties)
+```
+
+</details>
+
+```{r}
+ggplot(data = ny_counties_sf) +
+  geom_sf() +
+  theme_minimal() +
+  labs(title = "Counties of New York State",
+       caption = "Source: US Census Bureau")
+```
+
+<details>
+  <summary>Click here to see how this was done</summary>
+```{r}
+# Only total population 
+
+estimated_total <- total_population_race |>
+  filter(grepl("Estimated Total", race))
+
+            
+estimated_total_long <- estimated_total |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "population") |>
+  mutate(year = as.numeric(gsub("y", "", year))) |>
+  select(-race, -NAME)
+
+
+NY_pop_long <- ny_counties_sf |>
+  left_join(estimated_total_long, by = "GEOID")
+            
+
+library(gganimate)
+library(gifski)
+```
+```{r}
+p <- ggplot(NY_pop_long) +
+  geom_sf(aes(fill = population), color = "white") +  
+  scale_fill_viridis(name = "population", option = "C", trans = "log") + 
+  theme_minimal() +
+  labs(title = "Population by County in New York ({frame_time})",  # Add the title and year
+       subtitle = "Year: {frame_time}",
+       caption = "Source: Your Dataset") +
+  theme(legend.position = "right") +
+  transition_time(year) +  
+  ease_aes('linear') 
+```
+
+</details>
+
