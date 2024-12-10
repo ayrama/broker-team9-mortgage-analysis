@@ -1,0 +1,485 @@
+# Final Project Team 9
+
+<details>
+  <summary>**Click here to see how the libraries were downloaded**</summary>
+```{r}
+required_packages <- c(
+  "tidycensus", "tigris", "plotly", "gganimate", "viridis", "magick"
+)
+
+for (pkg in required_packages) {
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
+
+library(tidycensus)
+library(tidyverse) 
+library(DT)
+library(tigris)
+library(plotly)
+library(gganimate)
+library(viridis)
+library(sf)
+library(magick) 
+
+```
+</details>
+
+Change of Variables 
+<details>
+  <summary>**Click here to see how the variables were changed**</summary>
+```{r}
+
+vars_2018 <- load_variables(2018, "acs1", cache = TRUE)
+
+var_map <- c(
+  "B02001_001" = "Estimated Total",
+  "B02001_002" = "White Alone", 
+  "B02001_003" = "Black or African American Alone", 
+  "B02001_004" = "American Indian and Alaska Native Alone",
+  "B02001_005" = "Asian Alone", 
+  "B02001_006" = "Native Hawaiian and other Pacific Islander Alone",
+  "B02001_007" = "Some Other Race", 
+  "B02001_008" = "2 or more races"
+)
+
+```
+</details>
+
+Population Report for 2018 - 2023, based on Race
+
+<details>
+  <summary>**Click here to see how the data was downloaded into R**</summary>
+```{r}
+# Getting 2018: 
+
+population_1901_2018 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2018,
+  survey = "acs1"
+)
+
+population_1901_2018 <- population_1901_2018 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2018 = estimate) |>
+  select(-moe)
+
+
+population_1901_2018 <- population_1901_2018 |>
+  mutate(race = var_map[race])
+
+# Getting 2019
+
+population_1901_2019 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2019,
+  survey = "acs1"
+)
+
+population_1901_2019 <- population_1901_2019 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2019 = estimate) |>
+  select(-moe)
+
+
+population_1901_2019 <- population_1901_2019 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2021
+
+population_1901_2021 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2021,
+  survey = "acs1"
+)
+
+population_1901_2021 <- population_1901_2021 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2021 = estimate) |>
+  select(-moe)
+
+
+population_1901_2021 <- population_1901_2021 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2022
+
+
+population_1901_2022 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2022,
+  survey = "acs1"
+)
+
+population_1901_2022 <- population_1901_2022 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2022 = estimate) |>
+  select(-moe)
+
+
+population_1901_2022 <- population_1901_2022 |>
+  mutate(race = var_map[race])
+
+
+# Getting 2023
+
+population_1901_2023 <- get_acs(
+  geography = "county",
+  variables = c("B02001_001", "B02001_002", "B02001_003", "B02001_004", "B02001_005", "B02001_006", "B02001_007", "B02001_008"),
+  year = 2023,
+  survey = "acs1"
+)
+
+population_1901_2023 <- population_1901_2023 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(race = variable) |>
+  rename(y2023 = estimate) |>
+  select(-moe)
+
+
+population_1901_2023 <- population_1901_2023 |>
+  mutate(race = var_map[race]) 
+
+```
+</details>
+
+
+Data table that shows all of the races from 2018-2023, by race and county. 
+
+<details>
+  <summary>**Click here to see how this was done**</summary>
+```{r}
+
+total_population_race <- population_1901_2018 |>
+  left_join(select(population_1901_2019, y2019, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2021, y2021, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2022, y2022, GEOID, race), by = c("GEOID", "race")) |>
+  left_join(select(population_1901_2023, y2023, GEOID, race), by = c("GEOID", "race")) 
+            
+```
+</details>
+
+
+```{r}
+
+datatable(total_population_race)
+
+```
+
+
+Get NY State map by county 
+
+<details>
+  <summary>**Click here to see how this was done**</summary>
+```{r}
+
+ny_counties <- counties(state = "NY", cb = TRUE)
+
+ny_counties_sf <- st_as_sf(ny_counties)
+
+```
+</details>
+
+
+```{r}
+
+ggplot(data = ny_counties_sf) +
+  geom_sf() +
+  theme_minimal() +
+  labs(title = "Counties of New York State",
+       caption = "Source: US Census Bureau")
+
+```
+
+
+<details>
+  <summary>**Click here to see how this was done**</summary>
+```{r}
+# Only total population 
+estimated_total <- total_population_race |>
+  filter(grepl("Estimated Total", race))
+
+            
+estimated_total_long <- estimated_total |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "population") |>
+  mutate(year = as.numeric(gsub("y", "", year))) |>
+  select(-race, -NAME)
+
+
+NY_pop_long <- ny_counties_sf |>
+  left_join(estimated_total_long, by = "GEOID")
+
+```
+
+
+```{r}
+p <- ggplot(NY_pop_long_fixed) +
+  geom_sf(aes(fill = population, group = GEOID), color = "black") +  # Keep counties stable
+  scale_fill_gradient(
+    name = "Population (in thousands)",
+    low = "lightblue",  # Light blue for least populated
+    high = "darkblue",  # Dark blue for most populated
+    trans = "log",  # Log transformation for smoother scale
+    labels = scales::label_number(scale = 0.001, accuracy = 0.1)  # In thousands
+  ) +
+  theme_bw() +
+  labs(
+    title = "Population by County in New York",
+    subtitle = "Year: {floor(frame_time)}",
+    caption = "Source: Your Dataset"
+  ) +
+  theme(legend.position = "right") +
+  transition_time(year) +
+  ease_aes('linear')
+
+# Render the animation
+animate(p)
+
+```
+
+</details>
+Data by House Hold Income: 
+
+Population Report for 2018 - 2023, based on Race
+
+<details>
+  <summary>**Click here to see how the data was downloaded into R**</summary>
+```{r}
+var_map2 <- c(
+  "S1901_C01_001" = "Total Households",
+  "S1901_C01_002" = "Income < $10,000", 
+  "S1901_C01_003" = "Income $10,000 - $14,999", 
+  "S1901_C01_004" = "Income $15,000 - $24,999",
+  "S1901_C01_005" = "Income $25,000 - $34,999", 
+  "S1901_C01_006" = "Income $35,000 - $49,999",
+  "S1901_C01_007" = "Income $50,000 - $74,999", 
+  "S1901_C01_008" = "Income $75,000 - $99,999",
+  "S1901_C01_009" = "Income $100,000 - $149,999",
+  "S1901_C01_010" = "Income $150,000 - $199,999",
+  "S1901_C01_011" = "Income > $200,000"
+)
+
+# Income 2018
+Income_2018 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2018,
+  survey = "acs1"
+)
+
+Income_2018 <- Income_2018 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2018 = estimate) |>
+  select(-moe)
+
+
+Income_2018 <- Income_2018 |>
+  mutate(income = var_map2[income])
+
+# Income 2019
+
+Income_2019 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2019,
+  survey = "acs1"
+)
+
+Income_2019 <- Income_2019 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2019 = estimate) |>
+  select(-moe)
+
+
+Income_2019 <- Income_2019 |>
+  mutate(income = var_map2[income])
+
+# Get 2021
+
+Income_2021 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2021,
+  survey = "acs1"
+)
+
+Income_2021 <- Income_2021 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2021 = estimate) |>
+  select(-moe)
+
+
+Income_2021 <- Income_2021 |>
+  mutate(income = var_map2[income])
+
+
+# Get 2022
+
+Income_2022 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2022,
+  survey = "acs1"
+)
+
+Income_2022 <- Income_2022 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2022 = estimate) |>
+  select(-moe)
+
+
+Income_2022 <- Income_2022 |>
+  mutate(income = var_map2[income])
+
+# Get 2023
+
+Income_2023 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2023,
+  survey = "acs1"
+)
+
+Income_2023 <- Income_2023 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2023 = estimate) |>
+  select(-moe)
+
+
+Income_2023 <- Income_2023 |>
+  mutate(income = var_map2[income])
+
+
+```
+</details>
+
+Data table that shows all of the households from 2018-2023, by income and county. 
+
+<details>
+  <summary>**Click here to see how this was done**</summary>
+```{r}
+
+# Join tables
+
+total_income_household <- Income_2018 |>
+  left_join(select(Income_2019, y2019, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2021, y2021, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2022, y2022, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2023, y2023, GEOID, income), by = c("GEOID", "income")) 
+
+            
+```
+</details>
+
+
+```{r}
+
+datatable(total_income_household)
+
+```
+
+```{r}
+# Convert percentages to actual numbers and round to whole numbers
+total_income_household_numbers <- total_income_household |>
+  group_by(GEOID) |>
+  mutate(
+    across(starts_with("y"), ~ if_else(
+      grepl("^Income", income), 
+      round(. * first(y2018) * 0.01),  # Calculate and round
+      round(.)  # Round other values as well
+    ))
+  ) |>
+  ungroup()
+
+# View the modified table
+total_income_household_numbers
+
+
+```
+
+
+
+long version: 
+
+```{r}
+total_income_household_long <- total_income_household |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "households") |>
+  mutate(year = as.numeric(gsub("y", "", year))) 
+
+
+datatable(total_income_household_long)
+
+```
+
+```{r}
+total_income_household_numbers
+
+total_income_household_numbers_long <- total_income_household_numbers |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "households") |>
+  mutate(year = as.numeric(gsub("y", "", year))) 
+
+
+datatable(total_income_household_numbers_long)
+```
+
+
+```{r}
+str(NY_pop_long_fixed)
+cat('\n================\n\n')
+str(total_income_household_numbers)
+```
+
+```{r}
+# Step 1: Join `total_population_race` and `total_income_household_numbers` by GEOID
+population_income <- total_population_race |>
+  left_join(total_income_household_numbers, by = "GEOID")
+
+# Step 2: Join the resulting table with `NY_pop_long_fixed` by GEOID
+final_table <- population_income |>
+  left_join(NY_pop_long_fixed, by = "GEOID")
+
+# Optional: Print the table for verification
+print(final_table, n = inf)
+
+```
+```{r}
+# Remove unwanted columns
+final_table <- final_table |>
+  select(
+    -NAME.x, -NAME.y, -STATEFP, -COUNTYFP, -COUNTYNS, -AFFGEOID, 
+    -NAMELSAD, -STUSPS, -STATE_NAME, -LSAD, -ALAND, -AWATER, -year
+  )
+
+# Check the structure of the updated table
+str(final_table)
+```
+
+
+```{r}
+print(final_table, nrow=inf)
+```
+
+
+
