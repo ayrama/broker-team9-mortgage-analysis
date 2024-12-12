@@ -469,17 +469,72 @@ print(final_table, n = inf)
 final_table <- final_table |>
   select(
     -NAME.x, -NAME.y, -STATEFP, -COUNTYFP, -COUNTYNS, -AFFGEOID, 
-    -NAMELSAD, -STUSPS, -STATE_NAME, -LSAD, -ALAND, -AWATER, -year
+    -NAMELSAD, -STUSPS, -STATE_NAME, -LSAD, -ALAND, -AWATER
   )
 
 # Check the structure of the updated table
 str(final_table)
 ```
 
+### from Alex
+#### Reading CSV Files into a List of Data Frames
+
 
 ```{r}
-print(final_table, nrow=inf)
+
+# Specify the directory where the data file is located
+directory_path <- file.path(getwd(), "data")
+
+# Check if combined_data.rds exists in the directory
+rds_file <- list.files(path = directory_path, pattern = "\\.rds$", full.names = TRUE)
+
+if (length(rds_file) > 0) {
+  # Load the RDS file if it exists
+  combined_data <- readRDS(rds_file[1])  # Load the first RDS file found
+  cat("combined_data.rds has been loaded successfully.\n")
+  
+  # View the data structure
+  head(combined_data)
+  str(combined_data)
+} else {
+  # If no RDS file is found, handle as needed (e.g., throw an error or proceed to process other files)
+  cat("No .rds file found in the directory. Please check the directory or file name.\n")
+}
+
 ```
+
+
+```{r}
+# Specify the column names to extract
+columns_to_extract <- c("activity_year", "county_code", "derived_msa.md", "derived_race",
+                        "action_taken", "ffiec_msa_md_median_family_income", "lei",
+                        "census_tract", "derived_sex", "loan_type", "loan_amount",
+                        "interest_rate", "loan_term", "applicant_credit_score_type",
+                        "tract_to_msa_income_percentage")
+
+# Check if all columns to extract exist in the combined_data
+missing_columns <- setdiff(columns_to_extract, colnames(combined_data))
+if (length(missing_columns) > 0) {
+  cat("The following columns are missing and will not be extracted:\n")
+  print(missing_columns)
+}
+
+# Extract specified columns (only those that exist)
+extracted_data <- combined_data[, intersect(columns_to_extract, colnames(combined_data))]
+
+# Convert the 'census_tract' column to character (if it exists)
+if ("census_tract" %in% colnames(extracted_data)) {
+  extracted_data <- extracted_data %>%
+    mutate(census_tract = as.character(census_tract))
+}
+
+# View the extracted data
+head(extracted_data)
+str(extracted_data)
+
+```
+
+
 
 
 
