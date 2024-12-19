@@ -4,7 +4,7 @@ author: "Broker T's (Team )"
 editor: visual
 format:
   html:
-    code-fold: false
+    code-fold: true
     toc: true         
     toc-depth: 3 
 execute: 
@@ -13,11 +13,23 @@ execute:
   warning: false
   message: false
 ---
-<details>
-  <summary>Click here to see how the libraries were downloaded</summary>
+## Introduction:
+
+The overarching question of our group project was: **"How do county, income, and demographics affect mortgage loans and rates across the three stages of the COVID-19 pandemic?"** The project analyzed shifts in mortgages before, during, and after the pandemic (2018-2023) using metrics related to geography, demographics, and economics. Our group explored patterns in income, employment, and loan distribution, uncovering trends in equity, race, and economic behavior.
+
+In my individual report, I aim to address **specific financial questions** derived from this overarching question. These include:
+
+1. **How did loan applications and approval rates vary across the Pre-Pandemic, Pandemic, and Post-Pandemic periods?**
+2. **Are people with higher incomes more likely to secure lower mortgage rates during the pandemic? Does income level significantly impact mortgage rates during the pandemic?**
+3. **Do certain job types in a county influence mortgage rates during the pandemic?**
+
+Through targeted analyses and statistical tests, I will provide insights into these financial dimensions and their implications within the context of the broader group findings.
+
+
+## Packages included in the project
 ```{r}
 required_packages <- c(
-  "tidycensus", "tigris", "plotly", "gganimate", "viridis", "magick"
+  "tidycensus", "tigris", "plotly", "gganimate", "viridis", "magick", "hrbrthemes", "scales", "patchwork"
 )
 
 for (pkg in required_packages) {
@@ -27,25 +39,23 @@ for (pkg in required_packages) {
 }
 
 library(tidycensus)
-library(tidyverse) 
+library(tidyverse) # Includes dplyr, ggplot2, tidyr, and others
 library(DT)
 library(tigris)
 library(plotly)
 library(gganimate)
 library(viridis)
 library(sf)
-library(magick) 
+library(magick)
+library(hrbrthemes)
+library(scales)
+library(patchwork)
 ```
-</details>
 
-
-
+## Loading datasets
+### Loaing NY state population dataset
 ```{r}
-census_api_key('fd444ca335bf9020633084575dbe45c1529be65f', install = TRUE, overwrite = TRUE)
-```
-##### Change of Variables
-Click here to see how the variables were changed
-```{r}
+
 vars_2018 <- load_variables(2018, "acs1", cache = TRUE)
 
 var_map <- c(
@@ -58,12 +68,10 @@ var_map <- c(
   "B02001_007" = "Some Other Race", 
   "B02001_008" = "2 or more races"
 )
-```
-</details> 
 
-##### Population Report for 2018 - 2023, based on Race
-<details>
-  <summary>Click here to see how the data was downloaded into R</summary>
+```
+
+
 ```{r}
 # Getting 2018: 
 
@@ -73,9 +81,7 @@ population_1901_2018 <- get_acs(
   year = 2018,
   survey = "acs1"
 )
-```
 
-```{r}
 population_1901_2018 <- population_1901_2018 |>
   filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
   rename(race = variable) |>
@@ -94,9 +100,7 @@ population_1901_2019 <- get_acs(
   year = 2019,
   survey = "acs1"
 )
-```
 
-```{r}
 population_1901_2019 <- population_1901_2019 |>
   filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
   rename(race = variable) |>
@@ -116,9 +120,7 @@ population_1901_2021 <- get_acs(
   year = 2021,
   survey = "acs1"
 )
-```
 
-```{r}
 population_1901_2021 <- population_1901_2021 |>
   filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
   rename(race = variable) |>
@@ -139,9 +141,7 @@ population_1901_2022 <- get_acs(
   year = 2022,
   survey = "acs1"
 )
-```
 
-```{r}
 population_1901_2022 <- population_1901_2022 |>
   filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
   rename(race = variable) |>
@@ -161,9 +161,7 @@ population_1901_2023 <- get_acs(
   year = 2023,
   survey = "acs1"
 )
-```
 
-```{r}
 population_1901_2023 <- population_1901_2023 |>
   filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
   rename(race = variable) |>
@@ -173,53 +171,31 @@ population_1901_2023 <- population_1901_2023 |>
 
 population_1901_2023 <- population_1901_2023 |>
   mutate(race = var_map[race]) 
+
 ```
-Data table that shows all of the races from 2018-2023, by race and county.
 
-</details> 
-
-
-<details>
-  <summary>Click here to see how this was done</summary>
 ```{r}
+# Joining tables together
 total_population_race <- population_1901_2018 |>
   left_join(select(population_1901_2019, y2019, GEOID, race), by = c("GEOID", "race")) |>
   left_join(select(population_1901_2021, y2021, GEOID, race), by = c("GEOID", "race")) |>
   left_join(select(population_1901_2022, y2022, GEOID, race), by = c("GEOID", "race")) |>
   left_join(select(population_1901_2023, y2023, GEOID, race), by = c("GEOID", "race")) 
+            
 ```
-</details>
 
+The loaded population data sets, merged together, produce the following table total_population_race.
 ```{r}
 datatable(total_population_race)
 ```
 
-Get NY State map by county
-
-<details>
-  <summary>Click here to see how this was done</summary>
+Using the population data from the `total_population_race` data set, we can create an animated population plot for New York State spanning the years 2018 to 2023.
 ```{r}
 ny_counties <- counties(state = "NY", cb = TRUE)
-```
-```{r}
+
 ny_counties_sf <- st_as_sf(ny_counties)
-```
 
-</details>
-
-```{r}
-ggplot(data = ny_counties_sf) +
-  geom_sf() +
-  theme_minimal() +
-  labs(title = "Counties of New York State",
-       caption = "Source: US Census Bureau")
-```
-
-<details>
-  <summary>Click here to see how this was done</summary>
-```{r}
 # Only total population 
-
 estimated_total <- total_population_race |>
   filter(grepl("Estimated Total", race))
 
@@ -234,23 +210,1365 @@ estimated_total_long <- estimated_total |>
 
 NY_pop_long <- ny_counties_sf |>
   left_join(estimated_total_long, by = "GEOID")
-            
 
-library(gganimate)
-library(gifski)
+# Step 1: Extract all rows with NA population
+missing_rows <- NY_pop_long |>
+  filter(is.na(population))
+
+# Step 2: Expand to include all years (2018–2023) for these GEOIDs
+years <- 2018:2023
+missing_data <- expand_grid(
+  GEOID = missing_rows$GEOID,
+  year = years
+) |>
+  mutate(population = 0) |>
+  left_join(missing_rows |> select(-year, -population), by = "GEOID")  # Retain other columns
+
+# Step 3: Combine with valid data
+NY_pop_long_fixed <- NY_pop_long |>
+  filter(!is.na(population)) |>  # Keep valid data
+  bind_rows(missing_data) |>     # Add the expanded data
+  arrange(GEOID, year)           # Sort for clarity
+
 ```
+
 ```{r}
-p <- ggplot(NY_pop_long) +
-  geom_sf(aes(fill = population), color = "white") +  
-  scale_fill_viridis(name = "population", option = "C", trans = "log") + 
-  theme_minimal() +
-  labs(title = "Population by County in New York ({frame_time})",  # Add the title and year
-       subtitle = "Year: {frame_time}",
-       caption = "Source: Your Dataset") +
+p <- ggplot(NY_pop_long_fixed) +
+  geom_sf(aes(fill = population, group = GEOID), color = "black") +  # Keep counties stable
+  scale_fill_gradient(
+    name = "Population (in thousands)",
+    low = "lightblue",  # Light blue for least populated
+    high = "darkblue",  # Dark blue for most populated
+    trans = "log",  # Log transformation for smoother scale
+    labels = scales::label_number(scale = 0.001, accuracy = 0.1)  # In thousands
+  ) +
+  theme_bw() +
+  labs(
+    title = "Population by County in New York",
+    subtitle = "Year: {floor(frame_time)}",
+    caption = "Source: Your Dataset"
+  ) +
   theme(legend.position = "right") +
-  transition_time(year) +  
-  ease_aes('linear') 
+  transition_time(year) +
+  ease_aes('linear')
+
+# Render the animation
+animate(p)
+```
+  
+### Loading two datasets from the United States Census Bureau: S1901 (Income in the Past 12 Months, adjusted for 2022 inflation) and S2401 (Occupation by Sex for the Civilian Employed Population aged 16 and over).from Consumer Financial Protection Bureau (HMDA data set for 2018-2023 years) and two datasets from United States Census Bureau, S1901Income in the Past 12 Months (in 2022 Inflation-Adjusted Dollars) and S2401Occupation by Sex for the Civilian Employed Population 16 Years and Over.
+```{r}
+var_map2 <- c(
+  "S1901_C01_001" = "Total Households",
+  "S1901_C01_002" = "Income < $10,000", 
+  "S1901_C01_003" = "Income $10,000 - $14,999", 
+  "S1901_C01_004" = "Income $15,000 - $24,999",
+  "S1901_C01_005" = "Income $25,000 - $34,999", 
+  "S1901_C01_006" = "Income $35,000 - $49,999",
+  "S1901_C01_007" = "Income $50,000 - $74,999", 
+  "S1901_C01_008" = "Income $75,000 - $99,999",
+  "S1901_C01_009" = "Income $100,000 - $149,999",
+  "S1901_C01_010" = "Income $150,000 - $199,999",
+  "S1901_C01_011" = "Income > $200,000"
+)
+
+# Income 2018
+Income_2018 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2018,
+  survey = "acs1"
+)
+
+Income_2018 <- Income_2018 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2018 = estimate) |>
+  select(-moe)
+
+
+Income_2018 <- Income_2018 |>
+  mutate(income = var_map2[income])
+
+# Income 2019
+
+Income_2019 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2019,
+  survey = "acs1"
+)
+
+Income_2019 <- Income_2019 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2019 = estimate) |>
+  select(-moe)
+
+
+Income_2019 <- Income_2019 |>
+  mutate(income = var_map2[income])
+
+# Get 2021
+
+Income_2021 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2021,
+  survey = "acs1"
+)
+
+Income_2021 <- Income_2021 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2021 = estimate) |>
+  select(-moe)
+
+
+Income_2021 <- Income_2021 |>
+  mutate(income = var_map2[income])
+
+
+# Get 2022
+
+Income_2022 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2022,
+  survey = "acs1"
+)
+
+Income_2022 <- Income_2022 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2022 = estimate) |>
+  select(-moe)
+
+
+Income_2022 <- Income_2022 |>
+  mutate(income = var_map2[income])
+
+# Get 2023
+
+Income_2023 <- get_acs(
+  geography = "county",
+  variables = c("S1901_C01_001E", "S1901_C01_002E", "S1901_C01_003E", "S1901_C01_004E", "S1901_C01_005E", "S1901_C01_006E", "S1901_C01_007E", "S1901_C01_008E", "S1901_C01_009E", "S1901_C01_010E", "S1901_C01_011E"),
+  year = 2023,
+  survey = "acs1"
+)
+
+Income_2023 <- Income_2023 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(income = variable) |>
+  rename(y2023 = estimate) |>
+  select(-moe)
+
+
+Income_2023 <- Income_2023 |>
+  mutate(income = var_map2[income])
 ```
 
-</details>
+```{r}
+# Joining tables
+total_income_household <- Income_2018 |>
+  left_join(select(Income_2019, y2019, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2021, y2021, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2022, y2022, GEOID, income), by = c("GEOID", "income")) |>
+  left_join(select(Income_2023, y2023, GEOID, income), by = c("GEOID", "income")) 
+
+```
+
+
+```{r}
+# Convert percentages to actual numbers and round to whole numbers
+total_income_household_numbers <- total_income_household |>
+  group_by(GEOID) |>
+  mutate(
+    across(starts_with("y"), ~ if_else(
+      grepl("^Income", income), 
+      round(. * first(y2018) * 0.01),  # Calculate and round
+      round(.)  # Round other values as well
+    ))
+  ) |>
+  ungroup()
+
+total_income_household_numbers_long <- total_income_household_numbers |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "households") |>
+  mutate(year = as.numeric(gsub("y", "", year))) 
+
+
+datatable(total_income_household_numbers_long)
+```
+
+
+
+```{r}
+# Step 1: Join `total_population_race` and `total_income_household_numbers` by GEOID
+population_income <- total_population_race |>
+  left_join(total_income_household_numbers, by = "GEOID")
+
+# Step 2: Join the resulting table with `NY_pop_long_fixed` by GEOID
+final_table <- population_income |>
+  left_join(NY_pop_long_fixed, by = "GEOID")
+
+# Remove unwanted columns
+final_table <- final_table |>
+  select(
+    -NAME.x, -NAME.y, -STATEFP, -COUNTYFP, -COUNTYNS, -AFFGEOID, 
+    -NAMELSAD, -STUSPS, -STATE_NAME, -LSAD, -ALAND, -AWATER
+  )
+```
+### Loaing datasets from the Consumer Financial Protection Bureau (HMDA) for the years 2018-2023. They contain fields such as year, interest rate, loan term, loan type, loan purpose, state code, county code, and more.
+```{r}
+# Specify the directory where the data file is located
+directory_path <- file.path(getwd(), "data")
+
+# Check if combined_data.rds exists in the directory
+rds_file <- list.files(path = directory_path, pattern = "\\.rds$", full.names = TRUE)
+
+if (length(rds_file) > 0) {
+  # Load the RDS file if it exists
+  combined_data <- readRDS(rds_file[1])  # Load the first RDS file found
+  cat("combined_data.rds has been loaded successfully.\n")
+  } else {
+  # If no RDS file is found, handle as needed (e.g., throw an error or proceed to process other files)
+  cat("No .rds file found in the directory. Please check the directory or file name.\n")
+}
+
+```
+
+
+```{r}
+# Specify the column names to extract
+columns_to_extract <- c("activity_year", "county_code", "derived_msa.md", "derived_race",
+                        "action_taken", "ffiec_msa_md_median_family_income", "lei",
+                        "census_tract", "derived_sex", "loan_type", "loan_amount",
+                        "interest_rate", "loan_term", "applicant_credit_score_type",
+                        "tract_to_msa_income_percentage")
+
+# Check if all columns to extract exist in the combined_data
+missing_columns <- setdiff(columns_to_extract, colnames(combined_data))
+if (length(missing_columns) > 0) {
+  cat("The following columns are missing and will not be extracted:\n")
+  print(missing_columns)
+}
+
+# Extract specified columns (only those that exist)
+extracted_data <- combined_data[, intersect(columns_to_extract, colnames(combined_data))]
+
+# Convert the 'census_tract' column to character (if it exists)
+if ("census_tract" %in% colnames(extracted_data)) {
+  extracted_data <- extracted_data |>
+    mutate(census_tract = as.character(census_tract))
+}
+
+```
+
+### Downloading occupational data
+```{r}
+var_map4 <- c(
+  "S2402_C01_001" = "Total Employed Full-Time",
+  "S2402_C01_002" = "Management, Business, Science, Arts", 
+  "S2402_C01_018" = "Service",
+  "S2402_C01_026" = "Sales and Office", 
+  "S2402_C01_029" = "Natural Resources, Construction, Maintenance",
+  "S2402_C01_033" = "Production, Transportation, Material Moving"
+)
+
+# Occupation 2018
+
+
+main_occupation_2018 <- get_acs(
+  geography = "county",
+  variables = c("S2402_C01_001", "S2402_C01_002", "S2402_C01_018", "S2402_C01_026", "S2402_C01_029", "S2402_C01_033"),
+  year = 2018,
+  survey = "acs1"
+)
+
+main_occupation_2018 <- main_occupation_2018 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(job_type = variable) |>
+  rename(y2018 = estimate) |>
+  select(-moe)
+
+
+main_occupation_2018 <- main_occupation_2018 |>
+  mutate(job_type = var_map4[job_type])
+
+
+# Occupation 2019
+
+
+main_occupation_2019 <- get_acs(
+  geography = "county",
+  variables = c("S2402_C01_001", "S2402_C01_002", "S2402_C01_018", "S2402_C01_026", "S2402_C01_029", "S2402_C01_033"),
+  year = 2019,
+  survey = "acs1"
+)
+
+main_occupation_2019 <- main_occupation_2019 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(job_type = variable) |>
+  rename(y2019 = estimate) |>
+  select(-moe)
+
+
+main_occupation_2019 <- main_occupation_2019 |>
+  mutate(job_type = var_map4[job_type])
+
+
+# Occupation 2021
+
+
+main_occupation_2021 <- get_acs(
+  geography = "county",
+  variables = c("S2402_C01_001", "S2402_C01_002", "S2402_C01_018", "S2402_C01_026", "S2402_C01_029", "S2402_C01_033"),
+  year = 2021,
+  survey = "acs1"
+)
+
+main_occupation_2021 <- main_occupation_2021 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(job_type = variable) |>
+  rename(y2021 = estimate) |>
+  select(-moe)
+
+
+main_occupation_2021 <- main_occupation_2021 |>
+  mutate(job_type = var_map4[job_type])
+
+# Occupation 2022
+
+
+main_occupation_2022 <- get_acs(
+  geography = "county",
+  variables = c("S2402_C01_001", "S2402_C01_002", "S2402_C01_018", "S2402_C01_026", "S2402_C01_029", "S2402_C01_033"),
+  year = 2022,
+  survey = "acs1"
+)
+
+main_occupation_2022 <- main_occupation_2022 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(job_type = variable) |>
+  rename(y2022 = estimate) |>
+  select(-moe)
+
+
+main_occupation_2022 <- main_occupation_2022 |>
+  mutate(job_type = var_map4[job_type])
+
+
+# Occupation 2023
+
+
+main_occupation_2023 <- get_acs(
+  geography = "county",
+  variables = c("S2402_C01_001", "S2402_C01_002", "S2402_C01_018", "S2402_C01_026", "S2402_C01_029", "S2402_C01_033"),
+  year = 2023,
+  survey = "acs1"
+)
+
+main_occupation_2023 <- main_occupation_2023 |>
+  filter(str_detect(NAME, regex("New York", ignore_case = TRUE))) |>
+  rename(job_type = variable) |>
+  rename(y2023 = estimate) |>
+  select(-moe)
+
+
+main_occupation_2023 <- main_occupation_2023 |>
+  mutate(job_type = var_map4[job_type])
+```
+
+```{r}
+# Joining tables
+total_occupations <- main_occupation_2018 |>
+  left_join(select(main_occupation_2019, y2019, GEOID, job_type), by = c("GEOID", "job_type")) |>
+  left_join(select(main_occupation_2021, y2021, GEOID, job_type), by = c("GEOID", "job_type")) |>
+  left_join(select(main_occupation_2022, y2022, GEOID, job_type), by = c("GEOID", "job_type")) |>
+  left_join(select(main_occupation_2023, y2023, GEOID, job_type), by = c("GEOID", "job_type")) 
+```
+
+
+```{r}
+# converting to long version
+total_occupations_long <- total_occupations |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year",
+               values_to = "population") |>
+  mutate(year = as.numeric(gsub("y", "", year))) 
+```
+
+## Addressing specific questions related to the economic aspects of loan rates.
+### How did loan applications and approval rates vary across Pre-Pandemic, Pandemic, and Post-Pandemic periods?
+Let's generate a `summary_table` that includes the three time periods: Pre-COVID (2018-2019), COVID (2020-2021), and Post-COVID (2022-2023); four income groups: "High Income," "Upper-Middle Income," "Lower-Middle Income," and "Low Income" (based on 4 percentiles); as well as the average interest rate (loan rate), approval percentage, and total applications.
+```{r}
+# Categorizing time periods and income groups
+extracted_data <- extracted_data |>
+  mutate(
+    time_period = case_when(
+      activity_year %in% c(2018, 2019) ~ "Pre-COVID (2018-2019)",
+      activity_year %in% c(2020, 2021) ~ "COVID (2020-2021)",
+      activity_year %in% c(2022, 2023) ~ "Post-COVID (2022-2023)"
+    ),
+    time_period = factor(time_period, levels = c("Pre-COVID (2018-2019)", "COVID (2020-2021)", "Post-COVID (2022-2023)"))
+  ) |>
+  mutate(
+    income_group = ntile(ffiec_msa_md_median_family_income, 4),
+    income_group = case_when(
+      income_group == 1 ~ "Low Income",
+      income_group == 2 ~ "Lower-Middle Income",
+      income_group == 3 ~ "Upper-Middle Income",
+      income_group == 4 ~ "High Income"
+    ),
+    income_group = factor(income_group, levels = c("High Income", "Upper-Middle Income", "Lower-Middle Income", "Low Income")),
+    interest_rate = as.numeric(interest_rate)
+  )
+
+# Adding loan approval status
+extracted_data <- extracted_data |>
+  mutate(approval_status = if_else(action_taken == 6, "Approved", "Not Approved"))
+
+# Summarizing data for interest rates and approval percentages
+summary_table <- extracted_data |>
+  group_by(time_period, income_group) |>
+  summarize(
+    avg_interest_rate = round(mean(interest_rate[action_taken == 6], na.rm = TRUE), 2),
+    approval_percentage = round(sum(action_taken == 6) / sum(action_taken == 1) * 100, 2),
+    total_applications = sum(action_taken == 1),
+    .groups = "drop"
+  )
+
+# Displaying summary table in an interactive format
+datatable(
+  summary_table,
+  options = list(
+    dom = 't',
+    pageLength = nrow(summary_table)
+  ),
+  caption = "Approval percentages and total applications by income groups and time periods."
+)
+```
+
+Let's create a plot to address our question: "How did loan applications and approval rates change during the Pre-Pandemic, Pandemic, and Post-Pandemic periods?"
+```{r}
+# Preparing and reshaping data for the plot
+plot_data <- extracted_data |>
+  filter(action_taken %in% c(1, 6)) |>
+  group_by(time_period, income_group) |>
+  summarize(
+    total_applications = sum(action_taken == 1),
+    approvals = sum(action_taken == 6),
+    .groups = "drop"
+  ) |>
+  mutate(
+    loans_without_approval = total_applications - approvals,
+    approval_percentage = approvals / total_applications * 100
+  ) |>
+  pivot_longer(
+    cols = c(loans_without_approval, approvals),
+    names_to = "action_label",
+    values_to = "count"
+  ) |>
+  mutate(action_label = if_else(action_label == "loans_without_approval", "Loans Without Approval", "Approvals"))
+
+# Calculating overall approval percentage for each time period
+overall_approval_data <- plot_data |>
+  group_by(time_period) |>
+  summarize(
+    total_approvals = sum(count[action_label == "Approvals"]),
+    total_applications = sum(count),
+    overall_approval_percentage = total_approvals / total_applications * 100,
+    .groups = "drop"
+  )
+
+# Creating a stacked bar chart with overall approval percentages
+ggplot(data = plot_data, aes(x = time_period, y = count / 1000, fill = action_label)) +
+  geom_bar(stat = "identity", position = "stack", alpha = 0.8) +
+  geom_text(
+    data = overall_approval_data,
+    aes(
+      x = time_period,
+      y = total_applications / 1000 - 50,
+      label = paste0(round(overall_approval_percentage, 1), "%")
+    ),
+    inherit.aes = FALSE,
+    color = "white",
+    size = 5
+  ) +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(
+    title = "Total Loan Applications and Approvals Over Time",
+    x = "Time Period",
+    y = "Total Applications / Approvals (in Thousands)",
+    fill = "Loan Status:"
+  ) +
+  theme_ipsum() +
+  theme(
+    legend.position = "bottom",
+    plot.caption = element_text(hjust = 0),
+    axis.title.y = element_text(color = "black")
+  )
+```
+The plot shows that post-pandemic, loan applications decreased to levels lower than pre-pandemic. During the pandemic, applications significantly increased, likely due to lower interest rates, while approval rates remained consistent across all three periods.
+
+
+### The nest specific question is **Are people with higher incomes more likely to get lower mortgage rates during the pandemic? Do higher incomes affect mortgage rates during the pandemic?**
+
+I will create several plots and perform statistical tests to address these two questions.
+```{r}
+# Generating the plot 'Average Interest Rates by Income Group Over Time'
+ggplot(summary_table, aes(x = income_group, y = avg_interest_rate, fill = time_period)) +
+  geom_bar(stat = "identity", position = position_dodge(), alpha = 0.8) +
+  labs(
+    title = "Average Interest Rates by Income Group Over Time",
+    x = "Income Group",
+    y = "Average Interest Rate",
+    fill = "Time Period", 
+    caption = "Income is divided into 4 percentiles:\nHigh Income (Top 25%), Upper-Middle Income (50%-75%),\nLower-Middle Income (25%-50%), Low Income (Bottom 25%)" 
+  ) +
+  theme_ipsum() + 
+  theme(
+    legend.position = "bottom", 
+    plot.caption = element_text(hjust = 0, size = 10), 
+    axis.title.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 12)  
+  )
+
+```
+The graph shows that before the pandemic, high-income earners had slightly lower loan rates compared to other income groups, with lower-middle-income earners facing the highest rates. During the pandemic, rates dropped for all groups and became almost equal. Post-pandemic, rates for high, upper-middle, and low-income groups equalized, while lower-middle-income earners faced higher rates. Interestingly, post-pandemic rates remain lower than pre-pandemic rates when comparing the 2018-2019 and 2022-2023 periods.
+
+
+Let's create another plot to provide a clearer understanding of the relationship between mortgage rates and income levels across the three time periods.
+```{r}
+# Filtering data for each time period
+pre_pandemic <- summary_table |> filter(time_period == "Pre-COVID (2018-2019)")
+pandemic <- summary_table |> filter(time_period == "COVID (2020-2021)")
+post_pandemic <- summary_table |> filter(time_period == "Post-COVID (2022-2023)")
+
+# Creating individual plots
+plot_pre <- ggplot(pre_pandemic, aes(x = income_group, y = avg_interest_rate, fill = income_group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(
+    title = "Pre-Pandemic (2018-2019)",
+    x = "Income Group",
+    y = "Average Interest Rate",
+    fill = "Income Group"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+plot_pandemic <- ggplot(pandemic, aes(x = income_group, y = avg_interest_rate, fill = income_group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(
+    title = "Pandemic (2020-2021)",
+    x = "Income Group",
+    y = "Average Interest Rate",
+    fill = "Income Group"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+plot_post <- ggplot(post_pandemic, aes(x = income_group, y = avg_interest_rate, fill = income_group)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_viridis(discrete = TRUE) +
+  labs(
+    title = "Post-Pandemic (2022-2023)",
+    x = "Income Group",
+    y = "Average Interest Rate",
+    fill = "Income Group"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Combining plots horizontally and add a shared legend
+final_plot <- (plot_pre + plot_pandemic + plot_post) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+final_plot
+```
+This plot highlights that mortgage rates were uneven before and after the pandemic. However, during the pandemic, the rates decreased for all income levels and became more consistent. Despite this, the rate for the High-Income group remained slightly lower compared to other income groups. Before the pandemic, the High-Income group enjoyed the lowest loan rates. After the pandemic, this is no longer the case, as the rates for this group are no longer the lowest.
+
+
+Let's perform a series of statistical tests to validate the insights drawn from the plots.
+```{r}
+# Filtering the data for 'COVID (2020-2021)' and relevant income groups
+high_income <- extracted_data |>
+  filter(time_period == "COVID (2020-2021)", income_group == "High Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_income <- extracted_data |>
+  filter(time_period == "COVID (2020-2021)", income_group == "Low Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_and_lower_middle_income <- extracted_data |>
+  filter(time_period == "COVID (2020-2021)", income_group %in% c("Low Income", "Lower-Middle Income")) |>
+  pull(interest_rate) |>
+  na.omit()
+
+# Performing t-tests
+t_test_high_low <- t.test(high_income, low_income, alternative = "two.sided", var.equal = FALSE)
+t_test_high_low_combined <- t.test(high_income, low_and_lower_middle_income, alternative = "two.sided", var.equal = FALSE)
+
+# Rounding all values and fixing the table
+results <- data.frame(
+  Comparison = c("High Income vs Low Income", "High Income vs Low & Lower-Middle Income"),
+  `t-statistic` = round(c(t_test_high_low$statistic, t_test_high_low_combined$statistic), 2),
+  `p-value` = formatC(c(t_test_high_low$p.value, t_test_high_low_combined$p.value), format = "f", digits = 2),
+  `High Income interest` = round(c(t_test_high_low$estimate[1], t_test_high_low_combined$estimate[1]), 2),
+  `Low Income and Combined Group Interest` = round(c(t_test_high_low$estimate[2], t_test_high_low_combined$estimate[2]), 2)
+)
+
+# The plot
+datatable(
+  results,
+  options = list(
+    dom = 't',
+    pageLength = nrow(results),
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))
+  ),
+  caption = htmltools::tags$caption(
+    style = 'caption-side: top; text-align: center; font-weight: bold; font-size: 16px;',
+    "T-test Results: Comparing Interest Rates Between Income Groups During COVID (2020-2021)"
+  )
+)
+```
+**Results of Statistical Tests on Interest Rates by Income Groups (2020-2021):**
+Test 1: High Income vs. Low Income (COVID 2020-2021)
+- **t-statistic**: -90.937  
+- **p-value**: < 2.2e-16  
+- **95% Confidence Interval**: [-0.28473, -0.27215]  
+- **Mean Interest Rate (High Income)**: 3.13  
+- **Mean Interest Rate (Low Income)**: 3.41  
+
+Interpretation
+The p-value is significantly below the 0.05 threshold, indicating a statistically significant difference in interest rates between high-income and low-income groups during the pandemic. The confidence interval does not include zero, confirming this difference. Low-income earners had higher interest rates than high-income earners.
+
+---
+
+Test 2: High Income vs. Low & Lower-Middle Income (Combined) (COVID 2020-2021)
+- **t-statistic**: -62.402  
+- **p-value**: < 2.2e-16  
+- **95% Confidence Interval**: [-0.12824, -0.12043]  
+- **Mean Interest Rate (High Income)**: 3.13  
+- **Mean Interest Rate (Low & Lower-Middle Income)**: 3.25  
+
+Interpretation
+Similarly, this test shows a statistically significant difference, with a p-value far below 0.05 and a confidence interval excluding zero. The combined group of low- and lower-middle-income earners had higher interest rates than high-income earners.
+
+---
+
+Conclusion:
+
+Are people with higher incomes more likely to get lower mortgage rates during the pandemic?  
+**Yes**, high-income earners were more likely to secure lower mortgage rates during the pandemic.
+
+Do higher incomes affect mortgage rates during the pandemic?  
+**Yes**, income level significantly affected mortgage rates, with higher-income groups benefiting from lower interest rates compared to lower-income groups.
+
+Let's perform the same test for the pre-pandemic period.
+```{r}
+# Filtering data for "Pre-COVID (2018-2019)" time period
+pre_covid_data <- extracted_data |> filter(time_period == "Pre-COVID (2018-2019)")
+
+# Separating data into relevant income groups
+high_income <- pre_covid_data |>
+  filter(income_group == "High Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_income <- pre_covid_data |>
+  filter(income_group == "Low Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_and_lower_middle_income <- pre_covid_data |>
+  filter(income_group %in% c("Low Income", "Lower-Middle Income")) |>
+  pull(interest_rate) |>
+  na.omit()
+
+# Performing t-tests
+t_test_high_low <- t.test(high_income, low_income, alternative = "two.sided", var.equal = FALSE)
+t_test_high_low_combined <- t.test(high_income, low_and_lower_middle_income, alternative = "two.sided", var.equal = FALSE)
+
+# Extracting key results for DT table
+results <- data.frame(
+  Comparison = c("High Income vs Low Income", "High Income vs Low & Lower-Middle Income"),
+  `t-statistic` = round(c(t_test_high_low$statistic, t_test_high_low_combined$statistic), 2),
+  `p-value` = signif(c(t_test_high_low$p.value, t_test_high_low_combined$p.value), 2),
+  `High Income interest` = round(c(t_test_high_low$estimate[1], t_test_high_low_combined$estimate[1]), 2),
+  `Low and Combined Group Interest` = round(c(t_test_high_low$estimate[2], t_test_high_low_combined$estimate[2]), 2)
+)
+
+# The plot
+datatable(
+  results,
+  options = list(
+    dom = 't',
+    pageLength = nrow(results),
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))
+  ),
+  caption = htmltools::tags$caption(
+    style = 'caption-side: top; text-align: center; font-weight: bold;',
+    "T-test Results: Comparing Interest Rates Between Income Groups During Pre-COVID (2018-2019)"
+  )
+)
+```
+**Results of Statistical Tests on Interest Rates by Income Groups (2018-2019):**
+
+Test 1: High Income vs. Low Income
+- **t-statistic**: -3.1033  
+- **p-value**: 0.001914  
+- **95% Confidence Interval**: [-0.343, -0.077]  
+- **Mean Interest Rate (High Income)**: 4.55  
+- **Mean Interest Rate (Low Income)**: 4.76  
+
+**Interpretation**:  
+The p-value (0.001914) is below the significance level of 0.05, indicating a statistically significant difference in interest rates between high-income and low-income groups before the pandemic. The confidence interval does not include zero, confirming this difference. Low-income earners had higher interest rates than high-income earners.
+
+---
+
+Test 2: High Income vs. Low & Lower-Middle Income (Combined)
+- **t-statistic**: -2.6279  
+- **p-value**: 0.008591  
+- **95% Confidence Interval**: [-0.311, -0.045]  
+- **Mean Interest Rate (High Income)**: 4.55  
+- **Mean Interest Rate (Low & Lower-Middle Income)**: 4.72  
+
+**Interpretation**:  
+Similarly, this test shows a statistically significant difference, with a p-value (0.008591) below 0.05. The confidence interval excludes zero, confirming the finding. The combined group of low- and lower-middle-income earners had higher interest rates compared to high-income earners.
+
+---
+
+Conclusion
+**Are people with higher incomes more likely to get lower mortgage rates before the pandemic?**  
+Yes, high-income earners were more likely to secure lower mortgage rates before the pandemic.
+
+**Do higher incomes affect mortgage rates before the pandemic?**  
+Yes, income level significantly affected mortgage rates, with higher-income groups benefiting from lower interest rates compared to lower-income groups.
+
+
+Let's perform the same test for the post-pandemic period.
+```{r}
+# Filtering data for "Pre-COVID (2018-2019)" time period
+pre_covid_data <- extracted_data |> filter(time_period == "Post-COVID (2022-2023)")
+
+# Separating data into relevant income groups
+high_income <- pre_covid_data |>
+  filter(income_group == "High Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_income <- pre_covid_data |>
+  filter(income_group == "Low Income") |>
+  pull(interest_rate) |>
+  na.omit()
+
+low_and_lower_middle_income <- pre_covid_data |>
+  filter(income_group %in% c("Low Income", "Lower-Middle Income")) |>
+  pull(interest_rate) |>
+  na.omit()
+
+# Performing t-tests
+t_test_high_low <- t.test(high_income, low_income, alternative = "two.sided", var.equal = FALSE)
+t_test_high_low_combined <- t.test(high_income, low_and_lower_middle_income, alternative = "two.sided", var.equal = FALSE)
+
+# Extracting key results for DT table
+results <- data.frame(
+  Comparison = c("High Income vs Low Income", "High Income vs Low & Lower-Middle Income"),
+  `t-statistic` = round(c(t_test_high_low$statistic, t_test_high_low_combined$statistic), 2),
+  `p-value` = signif(c(t_test_high_low$p.value, t_test_high_low_combined$p.value), 2),
+  `High Income interest` = round(c(t_test_high_low$estimate[1], t_test_high_low_combined$estimate[1]), 2),
+  `Low and Combined Group Interest` = round(c(t_test_high_low$estimate[2], t_test_high_low_combined$estimate[2]), 2)
+)
+
+# The plot
+datatable(
+  results,
+  options = list(
+    dom = 't',
+    pageLength = nrow(results),
+    columnDefs = list(list(className = 'dt-center', targets = "_all"))
+  ),
+  caption = htmltools::tags$caption(
+    style = 'caption-side: top; text-align: center; font-weight: bold;',
+    "T-test Results: Comparing Interest Rates Between Income Groups During Pre-COVID (2018-2019)"
+  )
+)
+```
+**Results of Statistical Tests on Interest Rates by Income Groups (2022-202):**
+
+Test 1: High Income vs. Low Income
+- **t-statistic**: 86.241  
+- **p-value**: < 2.2e-16  
+- **95% Confidence Interval**: [0.812, 0.850]  
+- **Mean Interest Rate (High Income)**: 5.54  
+- **Mean Interest Rate (Low Income)**: 4.71  
+
+**Interpretation**:  
+The p-value (< 2.2e-16) is significantly below the 0.05 threshold, indicating a statistically significant difference in interest rates between high-income and low-income groups after the pandemic. The confidence interval does not include zero, confirming this difference. High-income earners had higher interest rates than low-income earners.
+
+---
+
+Test 2: High Income vs. Low & Lower-Middle Income (Combined)
+- **t-statistic**: 11.123  
+- **p-value**: < 2.2e-16  
+- **95% Confidence Interval**: [0.077, 0.110]  
+- **Mean Interest Rate (High Income)**: 5.54  
+- **Mean Interest Rate (Low & Lower-Middle Income)**: 5.45  
+
+**Interpretation**:  
+Similarly, this test reveals a statistically significant difference, with a p-value (< 2.2e-16) below 0.05. The confidence interval excludes zero, confirming the finding. High-income earners had slightly higher interest rates compared to the combined low- and lower-middle-income groups after the pandemic.
+
+---
+
+Conclusion
+**Are people with higher incomes more likely to get lower mortgage rates after the pandemic?**  
+No, high-income earners had higher mortgage rates compared to low-income earners after the pandemic.
+
+**Do higher incomes affect mortgage rates after the pandemic?**  
+Yes, income level significantly affected mortgage rates, but higher-income groups faced slightly higher interest rates compared to lower-income groups.
+
+
+**Conclusion: Interest Rates Between High and Low Income Groups (Pre, During, and Post-COVID):**
+
+- **Pre-COVID (2018-2019)**: High-income earners had significantly lower mortgage rates compared to low-income groups.
+- **During COVID (2020-2021)**: High-income earners continued to secure slightly lower rates compared to low-income groups, but the differences were less pronounced.
+- **Post-COVID (2022-2023)**: Interestingly, high-income earners faced **higher mortgage rates** compared to low-income groups, reversing the trend observed pre-COVID.
+
+These results indicate that the relationship between income level and interest rates shifted over time, suggesting that external factors during the post-pandemic period might have influenced rate determination beyond income level alone.
+
+
+### The next specific question we are going to anawer is **Do certain jobs in a county affect mortgage rates during the pandemic?**
+Let's prepare the `merged_data` table to address the question. It will include the `location` variable listing all counties in New York State, the `job_type` variable with five job group categories, the `time_period` column representing the pre-pandemic, pandemic, and post-pandemic phases, the `avg_population` column showing the number of workers in the five job groups, and the `avg_loan_rate` column for each county.
+```{r}
+# Defining GEOIDs for NYC counties; Bronx, Brooklyn, Manhattan, Queens, Staten Island
+nyc_geoids <- c(36005, 36047, 36061, 36081, 36085) 
+
+# Aggregating `total_occupations_long` by time period and location
+total_occupations_long_period <- total_occupations_long |>
+  mutate(
+    time_period = case_when(
+      year %in% c(2018, 2019) ~ "Pre-COVID (2018-2019)",
+      year %in% c(2020, 2021) ~ "COVID (2020-2021)",
+      year %in% c(2022, 2023) ~ "Post-COVID (2022-2023)"
+    ),
+    location = case_when(
+      GEOID == "36005" ~ "Bronx",
+      GEOID == "36047" ~ "Brooklyn",
+      GEOID == "36061" ~ "Manhattan",
+      GEOID == "36081" ~ "Queens",
+      GEOID == "36085" ~ "Staten Island",
+      TRUE ~ "Rest of State"
+    )
+  ) |>
+  group_by(location, job_type, time_period) |>
+  summarize(avg_population = sum(population, na.rm = TRUE), .groups = "drop")
+
+# Adding NYC as a combined entity
+nyc_aggregated <- total_occupations_long_period |>
+  filter(location %in% c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")) |>
+  group_by(job_type, time_period) |>
+  summarize(avg_population = sum(avg_population, na.rm = TRUE), .groups = "drop") |>
+  mutate(location = "NYC")
+
+# Combining with the rest of the state and individual boroughs
+total_occupations_long_period <- bind_rows(total_occupations_long_period, nyc_aggregated)
+
+# Calculating average loan rates for Rest of State, NYC, and 5 Boros
+extracted_data_period <- extracted_data |>
+  mutate(
+    location = case_when(
+      county_code == 36005 ~ "Bronx",
+      county_code == 36047 ~ "Brooklyn",
+      county_code == 36061 ~ "Manhattan",
+      county_code == 36081 ~ "Queens",
+      county_code == 36085 ~ "Staten Island",
+      TRUE ~ "Rest of State"
+    ),
+    time_period = case_when(
+      activity_year %in% c(2018, 2019) ~ "Pre-COVID (2018-2019)",
+      activity_year %in% c(2020, 2021) ~ "COVID (2020-2021)",
+      activity_year %in% c(2022, 2023) ~ "Post-COVID (2022-2023)"
+    ),
+    interest_rate = as.numeric(interest_rate) 
+  ) |>
+  filter(!is.na(interest_rate)) |>
+  group_by(location, time_period) |>
+  summarize(avg_loan_rate = mean(interest_rate, na.rm = TRUE), .groups = "drop")
+
+# Calculating average loan rate for NYC as the mean of all five boroughs
+nyc_avg_loan_rate <- extracted_data_period |>
+  filter(location %in% c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")) |>
+  group_by(time_period) |>
+  summarize(
+    location = "NYC",
+    avg_loan_rate = mean(avg_loan_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Combining NYC data with the rest
+extracted_data_period <- bind_rows(extracted_data_period, nyc_avg_loan_rate)
+
+# Adding NYC average loan rate from extracted_data
+nyc_avg_loan_rate <- extracted_data |>
+  filter(county_code %in% nyc_geoids) |>
+  mutate(
+    time_period = case_when(
+      activity_year %in% c(2018, 2019) ~ "Pre-COVID (2018-2019)",
+      activity_year %in% c(2020, 2021) ~ "COVID (2020-2021)",
+      activity_year %in% c(2022, 2023) ~ "Post-COVID (2022-2023)"
+    )
+  ) |>
+  group_by(time_period) |>
+  summarize(avg_loan_rate = mean(interest_rate, na.rm = TRUE), .groups = "drop") |>
+  mutate(location = "NYC")
+
+# Merging the NYC loan rate back into the extracted_data_period
+extracted_data_period <- bind_rows(extracted_data_period, nyc_avg_loan_rate)
+
+# Merging average loan rates into `total_occupations_long_period`
+merged_data <- total_occupations_long_period |>
+  left_join(extracted_data_period, by = c("location", "time_period"))
+
+# The final dataset
+merged_data <- merged_data |>
+  arrange(location, time_period, job_type) |>
+  select(location, job_type, time_period, avg_population, avg_loan_rate)
+
+datatable(
+  merged_data,
+  options = list(
+    pageLength = 10, # Display 10 rows per page
+    scrollX = TRUE, # Enable horizontal scrolling
+    dom = 'Bfrtip', # Display options for buttons, search, etc.
+    buttons = c('copy', 'csv', 'excel', 'pdf', 'print') # Export options
+  ),
+  caption = "Merged Data Table: Job Types, Population, and Loan Rates by Location and Time Period"
+)
+
+```
+
+Let's utilize the merged_data dataset to create a plot showcasing job distribution in NYC and the Rest of State across three time periods: pre-pandemic, pandemic, and post-pandemic, along with the average loan rate for each period.
+```{r}
+# Preparing data for bar plot
+merged_data <- merged_data |>
+  mutate(
+    time_period = factor(time_period, levels = c("Pre-COVID (2018-2019)", "COVID (2020-2021)", "Post-COVID (2022-2023)"))
+  )
+
+# Filtering data for NYC and Rest of State
+nyc_data <- merged_data |> filter(location == "NYC")
+rest_of_state_data <- merged_data |> filter(location == "Rest of State")
+
+# Removing 'Total Employed Full-Time' job type
+plot_data <- bind_rows(
+  nyc_data |> filter(job_type != "Total Employed Full-Time") |> mutate(group = "NYC"),
+  rest_of_state_data |> filter(job_type != "Total Employed Full-Time") |> mutate(group = "Rest of State")
+)
+
+# Calculating the label positions and include avg_loan_rate
+label_data <- plot_data |>
+  group_by(group, time_period) |>
+  summarize(
+    total_population = sum(avg_population / 1000),
+    avg_loan_rate = first(avg_loan_rate), 
+    .groups = "drop"
+  )
+
+plot_data |>
+  ggplot(aes(x = time_period, y = avg_population / 1000, fill = job_type)) +
+  geom_bar(position = "stack", stat = "identity") +
+  geom_text(
+    data = label_data,
+    aes(x = time_period, y = total_population / 2, label = paste0("Loan Rate: ", round(avg_loan_rate, 2))),
+    inherit.aes = FALSE,
+    color = "white",
+    size = 4
+  ) +
+  scale_fill_viridis(discrete = TRUE, option = "E", guide = guide_legend(nrow = 3)) +
+  ggtitle("Job Types by Time Period and Location") +
+  facet_wrap(~ group, nrow = 2, scales = "free_y") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical", 
+    legend.key.width = unit(1.5, "cm"),
+    legend.text = element_text(size = 10),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    legend.title = element_blank(), 
+    axis.title.x = element_blank() 
+  ) +
+  ylab("Average Population (in Thousands)")
+```
+The plot reveals that the "Management, Business, Science, Arts" job group constitutes the largest portion of employment in New York State. The average loan rates are comparable between NYC and the Rest of State. Additionally, loan rates significantly declined during the pandemic but rose post-pandemic to levels higher than those observed before the pandemic.
+
+
+Next, let’s create a similar plot to compare the five boroughs of NYC.
+```{r}
+# Filtering data for 5 Boros of NYC
+plot_data_boros <- merged_data |>
+  filter(location %in% c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island")) |>
+  filter(job_type != "Total Employed Full-Time") |> 
+  mutate(
+    time_period = factor(time_period, levels = c("Pre-COVID (2018-2019)", "COVID (2020-2021)", "Post-COVID (2022-2023)"))
+  )
+
+# Calculating label positions and include avg_loan_rate
+label_data <- plot_data_boros |>
+  group_by(location, time_period) |>
+  summarize(
+    total_population = sum(avg_population / 1000),
+    avg_loan_rate = first(avg_loan_rate), 
+    .groups = "drop"
+  )
+
+# Plot for 5 Boros of NYC with Loan Rate Labels
+main_plot <- plot_data_boros |>
+  ggplot(aes(x = location, y = avg_population / 1000, fill = job_type)) +
+  geom_bar(position = "stack", stat = "identity") +
+  geom_text(
+    data = label_data,
+    aes(x = location, y = total_population / 2, label = round(avg_loan_rate, 2)),
+    inherit.aes = FALSE,
+    color = "white",
+    size = 4,
+    angle = 90
+  ) +
+  scale_fill_viridis(discrete = TRUE, option = "E", guide = "none") + 
+  ggtitle("Job Types by Time Period for NYC Boros") +
+  facet_wrap(~ time_period, nrow = 1) +
+  theme_ipsum() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 12), 
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    xlab("Boro"),
+    ylab("Average Population (in Thousands)")
+  )
+
+main_plot
+```
+The plot shows a significant drop in employment numbers during the pandemic, with post-pandemic levels not yet fully recovering to pre-pandemic figures. Additionally, the proportion of "Management, Business, Science, Arts" jobs is highest in Brooklyn and Manhattan, which also have lower loan rates compared to the other three boroughs.
+
+
+
+Let's validate our observations from the plot through statistical tests. First, we will prepare the data table required for these tests.
+```{r}
+total_occupations_long <- total_occupations_long |>
+  mutate(GEOID = as.numeric(GEOID))
+
+# Calculating average loan rate for each county in extracted_data
+average_loan_rate_by_county <- extracted_data |>
+  group_by(county_code) |>
+  summarize(avg_loan_rate = mean(interest_rate, na.rm = TRUE), .groups = "drop")
+
+# Joining the calculated average loan rate with total_occupations_long
+updated_total_occupations <- total_occupations_long |>
+  left_join(average_loan_rate_by_county, by = c("GEOID" = "county_code"))
+```
+
+
+Next, let's perform an ANOVA test to analyze the relationship between job type proportions and loan rates for the year 2021 only (excluding 2020 data, which is also part of the pandemic period but unavailable).
+```{r}
+# Filtering out rows with "Total Employed Full-Time" and calculating job type proportions by "Total Employed Full-Time"
+filtered_data <- updated_total_occupations |>
+  group_by(GEOID, year) |>
+  mutate(
+    total_employed_full_time = population[job_type == "Total Employed Full-Time"],
+    job_type_proportion = ifelse(job_type != "Total Employed Full-Time", population / total_employed_full_time, NA)
+  ) |>
+  filter(job_type != "Total Employed Full-Time") |>
+  ungroup()
+
+# Including only the year 2021
+filtered_data_2021 <- filtered_data |>
+  filter(year == 2021)
+
+# Calculating the weighted average loan rate for each county
+weighted_data <- filtered_data_2021 |>
+  group_by(GEOID, year) |>
+  summarize(
+    avg_loan_rate = mean(avg_loan_rate, na.rm = TRUE),
+    weighted_loan_rate = sum(job_type_proportion * avg_loan_rate, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Merging back with the proportion data
+final_data <- filtered_data_2021 |>
+  left_join(weighted_data, by = c("GEOID", "year"))
+
+# Performing ANOVA to test if job type proportions influence average loan rate
+anova_result <- aov(avg_loan_rate.x ~ job_type_proportion, data = final_data)
+
+anova_result
+```
+The ANOVA test was conducted to determine if the **proportion of job types** (independent variable) affects the **average loan rate** (dependent variable) at the county level in 2021.
+
+**Null Hypothesis**
+Job type proportions have no effect on average loan rates.
+
+**Results**
+- F-value: 0  
+- p-value: 1  
+
+The results indicate that job type proportions do not explain any variation in the average loan rate.
+The analysis suggests that **job type proportions do not influence the average loan rate** in the dataset.
+
+Based on the ANOVA test, which included all job groups and counties in New York State, no relationship was found between the proportion of job types and the average loan rate in the state.
+
+
+Now, let’s proceed with a Correlation test.
+```{r}
+# Adding total_employed_full_time column
+updated_total_occupations <- updated_total_occupations |>
+  group_by(GEOID, year) |>
+  mutate(
+    total_employed_full_time = population[job_type == "Total Employed Full-Time"]
+  ) |>
+  ungroup()
+
+# Filtering out "Total Employed Full-Time" and keep only relevant year (2021)
+correlation_data <- updated_total_occupations |>
+  filter(job_type != "Total Employed Full-Time" & year == 2021) |>
+  group_by(GEOID, job_type) |>
+  summarize(
+    avg_loan_rate = mean(avg_loan_rate, na.rm = TRUE),
+    job_type_proportion = mean(population / total_employed_full_time, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Computing correlation between job type proportions and average loan rates
+correlation_result <- correlation_data |>
+  summarize(
+    correlation = cor(job_type_proportion, avg_loan_rate, use = "complete.obs"),
+    p_value = cor.test(job_type_proportion, avg_loan_rate)$p.value
+  )
+
+cat(
+  "Correlation Test Results:\n",
+  "Correlation Coefficient:", round(correlation_result$correlation, 3), "\n",
+  "P-value:", signif(correlation_result$p_value, 5), "\n"
+)
+
+ggplot(correlation_data, aes(x = job_type_proportion, y = avg_loan_rate)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = TRUE) +
+  facet_wrap(~ job_type, scales = "free") +
+  labs(
+    title = "Correlation Between Job Type Proportions and Average Loan Rates",
+    x = "Proportion of Job Type",
+    y = "Average Loan Rate"
+  ) +
+  theme_minimal()
+```
+**Analysis of Job Type Proportions and Average Loan Rates:**
+
+Observations from Scatter Plots:
+1. **"Management, Business, Science, Arts"**:
+   - Displays a negative slope.
+   - Suggests that counties with a higher proportion of this job type tend to have lower average loan rates.
+
+2. **"Sales and Office"**:
+   - Shows a near-zero slope.
+   - Indicates no clear relationship between the proportion of these jobs and average loan rates.
+
+3. **"Production, Transportation, Material Moving"**, **"Natural Resources, Construction, Maintenance"**, and **"Service"**:
+   - All exhibit positive slopes.
+   - Suggest that higher proportions of these job types are associated with slightly higher average loan rates.
+
+Correlation Test Results:
+- **Correlation value**: ~0 (close to zero).
+- **p-value**: 1.
+- Interpretation:
+  - The correlation test indicates **no statistically significant linear relationship** between job type proportions and average loan rates across all job types.
+
+Conclusion:
+While visual differences in slopes are observed for individual job types, the overall correlation result suggests that these differences are not statistically significant. This implies that the proportions of job types may not strongly influence average loan rates in a linear manner. 
+
+
+Now, let's perform the same test for the pre-pandemic and post-pandemic periods to determine whether the relationship between job types and loan rates remained consistent before and after the pandemic.
+```{r}
+# Adding total_employed_full_time column
+updated_total_occupations <- updated_total_occupations |>
+  group_by(GEOID, year) |>
+  mutate(
+    total_employed_full_time = population[job_type == "Total Employed Full-Time"]
+  ) |>
+  ungroup()
+
+# Filtering out "Total Employed Full-Time" and keeping only pre and post pandemic years.
+correlation_data <- updated_total_occupations |>
+  filter(job_type != "Total Employed Full-Time" & year != 2021) |>
+  group_by(GEOID, job_type) |>
+  summarize(
+    avg_loan_rate = mean(avg_loan_rate, na.rm = TRUE),
+    job_type_proportion = mean(population / total_employed_full_time, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Computing correlation between job type proportions and average loan rates
+correlation_result <- correlation_data |>
+  summarize(
+    correlation = cor(job_type_proportion, avg_loan_rate, use = "complete.obs"),
+    p_value = cor.test(job_type_proportion, avg_loan_rate)$p.value
+  )
+
+cat(
+  "Correlation Test Results:\n",
+  "Correlation Coefficient:", round(correlation_result$correlation, 3), "\n",
+  "P-value:", signif(correlation_result$p_value, 5), "\n"
+)
+
+ggplot(correlation_data, aes(x = job_type_proportion, y = avg_loan_rate)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = TRUE) +
+  facet_wrap(~ job_type, scales = "free") +
+  labs(
+    title = "Correlation Between Job Type Proportions and Average Loan Rates",
+    x = "Proportion of Job Type",
+    y = "Average Loan Rate"
+  ) +
+  theme_minimal()
+```
+As we can observe, the relationship between each job group and the average loan rate remains consistent across both the pre-pandemic and post-pandemic periods.
+
+
+Now, let's focus exclusively on "Management, Business, Science, Arts" to establish its relationship with the average loan rate during COVID time period.
+```{r}
+# Filtering data for 2021 and the selected job type
+filtered_data <- updated_total_occupations |>
+  filter(year == 2021, job_type == "Management, Business, Science, Arts") |>
+  mutate(
+    job_type_proportion = population / total_employed_full_time
+  )
+
+# Performing linear regression
+regression_model <- lm(avg_loan_rate ~ job_type_proportion, data = filtered_data)
+
+# Displaying the regression summary
+summary(regression_model)
+
+ggplot(filtered_data, aes(x = job_type_proportion, y = avg_loan_rate)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(
+    title = "Regression Analysis: Effect of 'Management, Business, Science, Arts' Proportion on Loan Rate",
+    x = "Proportion of 'Management, Business, Science, Arts'",
+    y = "Average Loan Rate"
+  ) +
+  theme_minimal()
+```
+The linear regression analysis explores the relationship between the proportion of **"Management, Business, Science, Arts"** jobs and the average loan rate during the year 2021.
+
+Results:
+- **Coefficient**: A unit increase in the proportion of **"Management, Business, Science, Arts"** jobs reduces the average loan rate by **1.95**.
+- **Significance**: The p-value (**1.38e-05**) indicates the result is statistically significant.
+- **R-squared**: The model explains **42.16%** of the variability in loan rates.
+
+Conclusion:
+Based on the significant negative relationship between the proportion of **"Management, Business, Science, Arts"** jobs and average loan rates, we can conclude that **certain jobs in a county influence mortgage rates during the pandemic**. In particular, higher proportions of this job type are associated with **lower mortgage rates**.
+
+Let's perform the same analysis for the pre-pandemic and post-pandemic periods.
+```{r}
+filtered_data <- updated_total_occupations |>
+  filter(year != 2021, job_type == "Management, Business, Science, Arts") |>
+  mutate(
+    job_type_proportion = population / total_employed_full_time
+  )
+
+regression_model <- lm(avg_loan_rate ~ job_type_proportion, data = filtered_data)
+
+summary(regression_model)
+
+library(ggplot2)
+ggplot(filtered_data, aes(x = job_type_proportion, y = avg_loan_rate)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(
+    title = "Regression Analysis: Effect of 'Management, Business, Science, Arts' Proportion on Loan Rate",
+    x = "Proportion of 'Management, Business, Science, Arts'",
+    y = "Average Loan Rate"
+  ) +
+  theme_minimal()
+```
+A similar result was obtained for the pre- and post-COVID years in the regression analysis for the "Management, Business, Science, Arts" job category, indicating that the relationship between this job group and the average loan rate remained consistent before, during, and after the pandemic.
+
+
+Finally, let's perform a multiple regression analysis to examine the relationship between the average loan rate in New York State during the pandemic and two specific job categories: "Natural Resources, Construction, Maintenance" and "Production, Transportation, Material Moving."
+```{r}
+# Filtering data for 2021 and the selected job types
+filtered_data_multiple <- updated_total_occupations |>
+  filter(year == 2021, 
+         job_type %in% c("Natural Resources, Construction, Maintenance", 
+                         "Production, Transportation, Material Moving")) |>
+  mutate(
+    job_type_proportion = population / total_employed_full_time
+  )
+
+wide_data <- filtered_data_multiple |>
+  select(GEOID, avg_loan_rate, job_type, job_type_proportion) |>
+  pivot_wider(names_from = job_type, values_from = job_type_proportion, values_fill = 0)
+
+# Renaming columns for clarity
+colnames(wide_data) <- make.names(colnames(wide_data))
+
+# Performing multiple regression
+multiple_regression_model <- lm(avg_loan_rate ~ Natural.Resources..Construction..Maintenance + 
+                                 Production..Transportation..Material.Moving, 
+                                 data = wide_data)
+
+# Displaying the regression summary
+summary(multiple_regression_model)
+```
+Regression Analysis Results: Impact of Job Type Proportions on Loan Rates
+
+The multiple regression analysis examines the relationship between the proportions of specific job types and the average loan rate for the year 2021.
+
+**Natural Resources, Construction, Maintenance**:
+  - Significance: The p-value (**0.0291**) is below 0.05, indicating a statistically significant effect.
+
+**Production, Transportation, Material Moving**:
+  - Significance: The p-value (**0.0161**) is below 0.05, confirming a statistically significant effect.
+
+**Model Performance**
+- **R-squared**: **50.2%** of the variability in loan rates is explained by the model.
+
+**Conclusion**
+The analysis indicates that higher proportions of **Natural Resources, Construction, Maintenance** and **Production, Transportation, Material Moving** jobs are associated with increased loan rates. These results suggest that job type proportions within counties influence average loan rates during 2021.
+
+
+## Conclusion
+
+The overarching question of our group project was: *"How do county, income, and demographics affect mortgage loans and rates across the three stages of the COVID-19 pandemic?"* Through my individual analysis, I addressed financial-specific questions that reveal patterns within this broader inquiry:
+
+1. **Loan Applications and Approval Rates Across Time Periods**  
+   Loan applications significantly increased during the pandemic, driven by historically low interest rates, but approval rates remained consistent. Post-pandemic, loan applications decreased, and approval rates returned to pre-pandemic patterns. This indicates a temporary shift in behavior during the pandemic but a return to prior trends afterward.
+
+2. **Impact of Income Levels on Mortgage Rates During the Pandemic**  
+   Higher-income earners consistently secured lower mortgage rates during the pandemic, demonstrating that income level significantly influenced loan rates. This trend persisted before and after the pandemic, although post-pandemic rates for high-income groups were no longer the lowest, signaling a shift in the relationship between income and loan rates.
+
+3. **Job Types and Their Influence on Mortgage Rates During the Pandemic**  
+   While the ANOVA test suggested no direct influence of job types on loan rates at the state level, further analysis revealed that certain job categories, such as *Management, Business, Science, Arts*, had a statistically significant impact on lowering mortgage rates. Conversely, job categories like *Natural Resources, Construction, Maintenance* and *Production, Transportation, Material Moving* were associated with higher loan rates.
+
+The findings align closely with the group project's primary focus on how economic and demographic variables influenced mortgage dynamics. By examining loan trends across time, the role of income in securing favorable rates, and the nuanced impact of employment type, this analysis adds depth to understanding the interplay between financial patterns and broader socio-economic shifts during and beyond the pandemic.
 
